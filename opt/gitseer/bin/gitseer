@@ -1,27 +1,37 @@
-#!/usr/bin/env ruby
+#!/usr/bin/env bash
 
-# original credits: https://moocode.com/posts/6-code-your-own-multi-user-private-git-server-in-5-minutes
- 
-# user and permissions are passed from authorized_keys
- 
-user = ARGV[0]
-permissions = ARGV[1]
-command = ENV['SSH_ORIGINAL_COMMAND']
-abort unless user and permissions and command
- 
-# check the supplied command contains a valid git action 
- 
-valid_actions = ['git-receive-pack', 'git-upload-pack']
-action = command.split[0]
-abort unless valid_actions.include? action
- 
-# check the permissions for this user
- 
-abort "read denied for #{user}" unless permissions =~ /r/
-abort "write denied for #{user}" if action == 'git-receive-pack' and permissions !~ /w/
- 
-STDERR.write "user #{user} authorized\n"
- 
-# user made a valid request so handing over to git-shell
- 
-Kernel.exec 'git', 'shell', '-c', command
+# Author: Adam Eberlin
+# Website: https://github.com/aeberlin/gitseer
+
+# Set script vars
+GS_USER="${1}"
+GS_PERMISSIONS="${2}"
+GS_COMMAND="${SSH_ORIGINAL_COMMAND}"
+GS_BASE_COMMAND=""
+
+# Echo to STDERR snippet
+echoerr() { echo "$@" 1>&2; }
+
+# Check that required vars are set
+if [ -z "${GS_USER}" ] || [ "${GS_USER}" = "" ]; then exit 1; fi
+if [ -z "${GS_PERMISSIONS}" ] || [ "${GS_PERMISSIONS}" = "" ]; then exit 1; fi
+if [ -z "${GS_COMMAND}" ] || [ "${GS_COMMAND}" = "" ]; then exit 1; fi
+
+# Get base command
+for i in $GS_COMMAND; do GS_BASE_COMMAND="${i}"; break; done
+
+# This area could be tidied up / reorganized a bit..
+
+authuser() {
+  if [ "${PERMISSIONS}" = 'r' ] && [ "${GS_BASE_COMMAND}" = "git-receive-pack" ]; then
+    echo 1
+  fi
+  if [ "${PERMISSIONS}" = 'rw' ] && [ "${GS_BASE_COMMAND}" = "git-upload-pack" ]; then
+    echo 1
+  fi
+}
+
+if [ -n authuser ]; then
+  echoerr "gitseer: user '${GS_USER}' authorized for '${GS_BASE_COMMAND}'"
+  git shell -c "${GS_COMMAND}"
+fi
