@@ -7,7 +7,6 @@
 GS_USER="${1}"
 GS_PERMISSIONS="${2}"
 GS_COMMAND="${SSH_ORIGINAL_COMMAND}"
-GS_BASE_COMMAND=""
 
 # Echo to STDERR snippet
 echoerr() { echo "$@" 1>&2; }
@@ -18,9 +17,10 @@ if [ -z "${GS_PERMISSIONS}" ] || [ "${GS_PERMISSIONS}" = "" ]; then exit 1; fi
 if [ -z "${GS_COMMAND}" ] || [ "${GS_COMMAND}" = "" ]; then exit 1; fi
 
 # Get base command
-for i in $GS_COMMAND; do GS_BASE_COMMAND="${i}"; break; done
+GS_BASE_COMMAND=""; for i in ${GS_COMMAND}; do GS_BASE_COMMAND="${i}"; break; done
 
-# This area could be tidied up / reorganized a bit..
+# Get remote address
+GS_REMOTE_ADDR=""; for i in ${SSH_CLIENT}; do GS_REMOTE_ADDR="${i}"; break; done
 
 authuser() {
   if [ "${PERMISSIONS}" = 'r' ] && [ "${GS_BASE_COMMAND}" = "git-receive-pack" ]; then
@@ -31,7 +31,12 @@ authuser() {
   fi
 }
 
+# This is ugly, I'll fix eventually.
 if [ -n authuser ]; then
-  echoerr "gitseer: user '${GS_USER}' authorized for '${GS_BASE_COMMAND}'"
+  echoerr "gitseer: user '${GS_USER}@${GS_REMOTE_ADDR}' authorized for '${GS_BASE_COMMAND}'"
   git shell -c "${GS_COMMAND}"
+  exit 0
 fi
+
+echoerr "gitseer: user '${GS_USER}@${GS_REMOTE_ADDR}' not authorized for '${GS_BASE_COMMAND}'"
+exit 1
